@@ -53,9 +53,10 @@ def lidar_to_camera(x, y, z, V2C=None, R0=None, P2=None):
         p = np.matmul(cnf.Tr_velo_to_cam, p)
         p = np.matmul(cnf.R0, p)
     else:
-        p = np.matmul(V2C, p)
-        p = np.matmul(R0, p)
-    p = p[0:3]
+        p = np.dot(V2C, p)
+        print(V2C)
+        p = np.dot(R0, p)
+    p = p[0:] 
     return tuple(p)
 
 

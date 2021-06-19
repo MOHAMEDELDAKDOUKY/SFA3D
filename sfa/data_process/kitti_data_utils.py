@@ -138,23 +138,23 @@ class Calibration(object):
         calibs = self.read_calib_file(calib_filepath)
         # Projection matrix from rect camera coord to image2 coord
         self.P2 = calibs['P2']
-        self.P2 = np.reshape(self.P2, [3, 4])
+        self.P2 = np.reshape(self.P2, [3, 3])
         self.P3 = calibs['P3']
         self.P3 = np.reshape(self.P3, [3, 4])
         # Rigid transform from Velodyne coord to reference camera coord
         self.V2C = calibs['Tr_velo2cam']
-        self.V2C = np.reshape(self.V2C, [3, 4])
+        self.V2C = np.reshape(self.V2C, [4, 4])[:-1, :]
         # Rotation from reference camera coord to rect camera coord
         self.R0 = calibs['R_rect']
         self.R0 = np.reshape(self.R0, [3, 3])
 
         # Camera intrinsics and extrinsics
-        self.c_u = self.P2[0, 2]
-        self.c_v = self.P2[1, 2]
-        self.f_u = self.P2[0, 0]
-        self.f_v = self.P2[1, 1]
-        self.b_x = self.P2[0, 3] / (-self.f_u)  # relative
-        self.b_y = self.P2[1, 3] / (-self.f_v)
+        # self.c_u = self.P2[0, 2]
+        # self.c_v = self.P2[1, 2]
+        # self.f_u = self.P2[0, 0]
+        # self.f_v = self.P2[1, 1]
+        # self.b_x = self.P2[0, 3] / (-self.f_u)  # relative
+        # self.b_y = self.P2[1, 3] / (-self.f_v)
 
     def read_calib_file(self, filepath):
         with open(filepath) as f:
@@ -169,10 +169,10 @@ class Calibration(object):
         obj = lines[5].strip().split(' ')[1:]
         Tr_velo_to_cam = np.array(obj, dtype=np.float32)
 
-        return {'P2': P2.reshape(3, 4),
+        return {'P2': P2.reshape(3, 3),
                 'P3': P3.reshape(3, 4),
                 'R_rect': R0.reshape(3, 3),
-                'Tr_velo2cam': Tr_velo_to_cam.reshape(3, 4)}
+                'Tr_velo2cam': Tr_velo_to_cam.reshape(4, 4)}
 
     def cart2hom(self, pts_3d):
         """
