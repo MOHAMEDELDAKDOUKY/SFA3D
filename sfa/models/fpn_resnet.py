@@ -22,7 +22,7 @@ import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
-
+import torchvision.models as models
 BN_MOMENTUM = 0.1
 
 model_urls = {
@@ -129,7 +129,12 @@ class PoseResNet(nn.Module):
         self.conv_up_level1 = nn.Conv2d(768, 256, kernel_size=1, stride=1, padding=0)
         self.conv_up_level2 = nn.Conv2d(384, 128, kernel_size=1, stride=1, padding=0)
         self.conv_up_level3 = nn.Conv2d(192, 64, kernel_size=1, stride=1, padding=0)
+        
+        #self.bn2 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
 
+
+
+        
         fpn_channels = [256, 128, 64]
         for fpn_idx, fpn_c in enumerate(fpn_channels):
             for head in sorted(self.heads):
@@ -160,9 +165,10 @@ class PoseResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, x2):
         _, _, input_h, input_w = x.size()
         hm_h, hm_w = input_h // 4, input_w // 4
+
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -170,11 +176,11 @@ class PoseResNet(nn.Module):
 
         out_layer1 = self.layer1(x)
         out_layer2 = self.layer2(out_layer1)
-
         out_layer3 = self.layer3(out_layer2)
 
         out_layer4 = self.layer4(out_layer3)
-
+        out_layer4 = torch.add(out_layer4, x2)
+        #out_layer4 = self.bn1(out_layer4)
         # up_level1: torch.Size([b, 512, 14, 14])
         up_level1 = F.interpolate(out_layer4, scale_factor=2, mode='bilinear', align_corners=True)
 

@@ -37,6 +37,8 @@ from data_process.transformation import lidar_to_camera_box
 from utils.visualization_utils import merge_rgb_to_bev, show_rgb_image_with_boxes
 from data_process.kitti_data_utils import Calibration
 
+from models.resnet_encoder import resnet_encoder
+from torchvision import transforms
 
 def parse_test_configs():
     parser = argparse.ArgumentParser(description='Testing config for the Implementation')
@@ -110,7 +112,7 @@ def parse_test_configs():
 
 if __name__ == '__main__':
     configs = parse_test_configs()
-
+    
     model = create_model(configs)
     print('\n\n' + '-*=' * 30 + '\n\n')
     assert os.path.isfile(configs.pretrained_path), "No file at {}".format(configs.pretrained_path)
@@ -119,6 +121,10 @@ if __name__ == '__main__':
 
     configs.device = torch.device('cpu' if configs.no_cuda else 'cuda:{}'.format(configs.gpu_idx))
     model = model.to(device=configs.device)
+    
+    #  Resnet encoder
+    resnet_enc = resnet_encoder(pretrained = True)
+    resnet_enc = resnet_enc.to(device=configs.device)
 
     out_cap = None
 
@@ -129,8 +135,22 @@ if __name__ == '__main__':
         for batch_idx, batch_data in enumerate(test_dataloader):
             metadatas, bev_maps, img_rgbs = batch_data
             input_bev_maps = bev_maps.to(configs.device, non_blocking=True).float()
+             
+            # RGB image preprocessing
+            img_rgbs_t = img_rgbs.permute(0, 3, 1, 2) / 255.0
+            img_rgbs_preproc = torch.nn.functional.interpolate(img_rgbs_t,
+                                      size=([608,608]))
+            img_transform = transforms.Normalize([0.485, 0.456, 0.406],
+                                       [0.229, 0.224, 0.225])   
+            img_rgbs_preproc =  img_transform(img_rgbs_preproc.squeeze())  
+            img_rgbs_preproc = torch.unsqueeze(img_rgbs_preproc, 0)
+            img_rgbs_preproc = img_rgbs_preproc.to(configs.device, non_blocking=True).float()
+
+            # Resnet encoder 
+            resnet_enc_out = resnet_enc(img_rgbs_preproc)
+
             t1 = time_synchronized()
-            outputs = model(input_bev_maps)
+            outputs = model(input_bev_maps, resnet_enc_out)
             outputs['hm_cen'] = _sigmoid(outputs['hm_cen'])
             outputs['cen_offset'] = _sigmoid(outputs['cen_offset'])
             # detections size (batch_size, K, 10)
